@@ -38,7 +38,7 @@ public class SimpleBarGraph extends View {
     // 图表线颜色
     private static final int GRAPH_LINE_COLOR = 0xFFDADADA;
 
-    private int mDescriptionHeight;
+    private int mMarkHeight;
     private int mNameHeight;
     private int mScaleTextWidth;
     private int mRightMargin;
@@ -56,7 +56,7 @@ public class SimpleBarGraph extends View {
 
     public SimpleBarGraph(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        mDescriptionHeight = ViewUtils.dp2px(context, 50);
+        mMarkHeight = ViewUtils.dp2px(context, 50);
         mNameHeight = ViewUtils.dp2px(context, 28);
         mScaleTextWidth = ViewUtils.dp2px(context, 45);
         mRightMargin = ViewUtils.dp2px(context, 16);
@@ -98,7 +98,7 @@ public class SimpleBarGraph extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         mGraphRect.set(getPaddingLeft() + mScaleTextWidth,
-                getPaddingTop() + mDescriptionHeight,
+                getPaddingTop() + mMarkHeight,
                 w - getPaddingRight() - mRightMargin,
                 h - getPaddingBottom() - mNameHeight);
     }
@@ -107,14 +107,11 @@ public class SimpleBarGraph extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
-        drawTypeDescription(canvas);
+        drawPillarTypeMark(canvas);
 
-        ScaleConfigs scaleConfigs = mAdapter.getScaleConfigs();
-        if (scaleConfigs != null) {
-            drawGraphScale(canvas, scaleConfigs);
+        drawGraphScale(canvas, mScaleConfigs);
 
-            drawPillar(canvas);
-        }
+        drawPillar(canvas);
     }
 
     private RectF mTmpRectF = new RectF();
@@ -123,10 +120,10 @@ public class SimpleBarGraph extends View {
         ensurePillarWidth();
         mTextPaint.setTextSize(mNameTextSize);
         mTextPaint.setColor(NAME_TEXT_COLOR);
-        int count = mAdapter.getDataCount();
+        int count = mAdapter.getPillarCount();
         for (int i = 0; i < count; i++) {
             // 第n个柱形的开始位置为：n*间隔 + (n-1)*柱形类型数
-            float startX = mGraphRect.left + +(i + 1) * mPillarWidth + (i * mAdapter.getTypeCount()) * mPillarWidth;
+            float startX = mGraphRect.left + +(i + 1) * mPillarWidth + (i * mAdapter.getPillarTypeCount()) * mPillarWidth;
             Pillar pillar = mAdapter.getPillar(i);
 
             // 1、绘制柱体不同类型的实体
@@ -140,19 +137,19 @@ public class SimpleBarGraph extends View {
     }
 
     private void drawPillarType(Canvas canvas, float startX, List<Float> peakList) {
-        List<PillarConfig> configs = mAdapter.getPillarConfigs();
         for (int i = 0, size = peakList.size(); i < size; i++) {
             calculateRect(peakList.get(i), startX + i * mPillarWidth, mTmpRectF);
-            mPillarPaint.setColor(configs.get(i).getColor());
+            // 获取每一个柱体对应的颜色
+            int color = mPillarConfigs.get(i).getColor();
+            mPillarPaint.setColor(color);
             canvas.drawRect(mTmpRectF.left, mTmpRectF.top, mTmpRectF.right, mTmpRectF.bottom, mPillarPaint);
         }
     }
 
     private void calculateRect(Float val, float startX, RectF rect) {
-        ScaleConfigs configs = mAdapter.getScaleConfigs();
         float graphHeight = mGraphRect.bottom - mGraphRect.top;
-        float len = configs.getEnd() - configs.getStart();
-        float percent = (val - configs.getStart()) / len;
+        float len = mScaleConfigs.getEnd() - mScaleConfigs.getStart();
+        float percent = (val - mScaleConfigs.getStart()) / len;
         rect.set(startX,
                 mGraphRect.bottom - percent * graphHeight,
                 startX + mPillarWidth,
@@ -163,7 +160,7 @@ public class SimpleBarGraph extends View {
         if (TextUtils.isEmpty(name)) {
             return;
         }
-        float textCenterX = startX + mAdapter.getTypeCount() * mPillarWidth / 2;
+        float textCenterX = startX + mAdapter.getPillarTypeCount() * mPillarWidth / 2;
         float offset = (mTextPaint.descent() + mTextPaint.ascent()) / 2;
         float baseline = mGraphRect.bottom + mNameHeight / 2 - offset;
         canvas.drawText(name, textCenterX, baseline, mTextPaint);
@@ -173,28 +170,27 @@ public class SimpleBarGraph extends View {
         if (mPillarWidth != 0) {
             return;
         }
-        int spaceCount = mAdapter.getDataCount() + 1;
-        int pillarCount = mAdapter.getDataCount() * mAdapter.getTypeCount();
+        int spaceCount = mAdapter.getPillarCount() + 1;
+        int pillarCount = mAdapter.getPillarCount() * mAdapter.getPillarTypeCount();
         mPillarWidth = (mGraphRect.right - mGraphRect.left) / (spaceCount + pillarCount);
     }
 
-    private void drawTypeDescription(Canvas canvas) {
+    /**
+     * 绘制顶部柱体类型的标识
+     */
+    private void drawPillarTypeMark(Canvas canvas) {
         ensurePillarWidth();
-        List<PillarConfig> configs = mAdapter.getPillarConfigs();
-        if (configs == null || configs.size() == 0) {
-            return;
-        }
         mTextPaint.setTextSize(mNameTextSize);
         mTextPaint.setColor(NAME_TEXT_COLOR);
-        float centerY = mGraphRect.top - mDescriptionHeight / 2;
+        float centerY = mGraphRect.top - mMarkHeight / 2;
         float baseline = centerY - (mTextPaint.ascent() + mTextPaint.descent()) / 2;
         // 顶部柱体块大小
         float blockHeight = (mTextPaint.descent() - mTextPaint.ascent()) * 0.6F;
         float blockWidth = blockHeight * 2F;
         float curX = mGraphRect.right;
         // 从右往左绘制
-        for (int i = configs.size() - 1; i >= 0; i--) {
-            PillarConfig config = configs.get(i);
+        for (int i = mPillarConfigs.size() - 1; i >= 0; i--) {
+            PillarConfigs config = mPillarConfigs.get(i);
             String name = config.getPillarName();
             if (TextUtils.isEmpty(name)) {
                 continue;
@@ -216,51 +212,70 @@ public class SimpleBarGraph extends View {
         }
     }
 
+    /**
+     * 绘制刻度线和刻度值
+     */
     private void drawGraphScale(Canvas canvas, ScaleConfigs scaleConfigs) {
         mTextPaint.setTextSize(mScaleTextSize);
         mTextPaint.setColor(SCALE_TEXT_COLOR);
         int count = scaleConfigs.getCount();
         float textOffset = (mTextPaint.ascent() + mTextPaint.descent()) / 2;
 
-        float per = (mGraphRect.bottom - mGraphRect.top) / (count - 1);
+        float perScaleHeight = (mGraphRect.bottom - mGraphRect.top) / (count - 1);
         for (int i = 0; i < count; i++) {
-            float y = mGraphRect.bottom - i * per;
+            float y = mGraphRect.bottom - i * perScaleHeight;
             // 绘制每一个刻度的x线
             canvas.drawLine(mGraphRect.left, y, mGraphRect.right, y, mLinePaint);
 
             // 绘制刻度文字
-            String text = scaleConfigs.getText(i);
+            String text = scaleConfigs.getScaleText(i);
             if (!TextUtils.isEmpty(text)) {
                 float baseline = y - textOffset;
                 canvas.drawText(text, mGraphRect.left - mScaleTextWidth / 2, baseline, mTextPaint);
             }
         }
-
+        // 绘制y轴
         canvas.drawLine(mGraphRect.left, mGraphRect.top, mGraphRect.left, mGraphRect.bottom, mLinePaint);
     }
 
     /*adapter*/
 
     private Adapter mAdapter;
+    private ScaleConfigs mScaleConfigs;
+    private List<PillarConfigs> mPillarConfigs;
 
     public void setAdapter(Adapter adapter) {
-        if (mAdapter != null && mAdapter == adapter) {
+        if (adapter == null) {
             return;
         }
-
+        checkAdapter(adapter);
         mAdapter = adapter;
+        mScaleConfigs = mAdapter.getScaleConfigs();
+        mPillarConfigs = mAdapter.getPillarConfigs();
         invalidate();
+    }
+
+    private void checkAdapter(Adapter adapter) {
+        ScaleConfigs scaleConfigs = adapter.getScaleConfigs();
+        if (scaleConfigs == null) {
+            throw new NullPointerException("Please set the " + ScaleConfigs.class.getCanonicalName() + " for adapter");
+        }
+
+        List<PillarConfigs> pillarConfigs = adapter.getPillarConfigs();
+        if (pillarConfigs == null || pillarConfigs.size() <= 0) {
+            throw new NullPointerException("Please set the " + PillarConfigs.class.getCanonicalName() + " for adapter");
+        }
     }
 
     public interface Adapter {
 
         ScaleConfigs getScaleConfigs();
 
-        List<PillarConfig> getPillarConfigs();
+        List<PillarConfigs> getPillarConfigs();
 
-        int getDataCount();
+        int getPillarCount();
 
-        int getTypeCount();
+        int getPillarTypeCount();
 
         Pillar getPillar(int position);
     }
@@ -272,10 +287,10 @@ public class SimpleBarGraph extends View {
 
         int getCount();
 
-        String getText(int position);
+        String getScaleText(int position);
     }
 
-    public interface PillarConfig {
+    public interface PillarConfigs {
         int getColor();
 
         String getPillarName();

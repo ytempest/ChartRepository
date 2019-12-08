@@ -6,6 +6,7 @@ import com.ytempest.chart.SimpleBarGraph;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * @author heqidu
@@ -13,86 +14,84 @@ import java.util.List;
  */
 public class GraphAdapter implements SimpleBarGraph.Adapter {
 
-    private List<SimpleBarGraph.PillarConfig> mPillarConfigs = new ArrayList<>();
+    private static final float SCALE_START = 2.78F;
+    private static final float SCALE_END = 2.96F;
+    private static final int SCALE_COUNT = 10;
+    private static final int PILLAR_TYPE_COUNT = 2;
+
     private List<SimpleBarGraph.Pillar> mPillarPillars = new ArrayList<>();
+    private final Random mRandom;
 
     public GraphAdapter() {
-        mPillarConfigs.add(new PillarConfig(0xFF707070, "Before Baking"));
-        mPillarConfigs.add(new PillarConfig(0xFFFDB20D, "After Baking"));
+        mRandom = new Random();
 
-        ArrayList<Float> data1 = new ArrayList<>();
-        data1.add(2.86F);
-        data1.add(2.91F);
-        mPillarPillars.add(new PillarPillar("1#", data1));
 
-        ArrayList<Float> data2 = new ArrayList<>();
-        data2.add(2.90F);
-        data2.add(2.82F);
-        mPillarPillars.add(new PillarPillar("2#", data2));
-
-        ArrayList<Float> data3 = new ArrayList<>();
-        data3.add(2.84F);
-        data3.add(2.95F);
-        mPillarPillars.add(new PillarPillar("3#", data3));
-
-        ArrayList<Float> data4 = new ArrayList<>();
-        data4.add(2.88F);
-        data4.add(2.90F);
-        mPillarPillars.add(new PillarPillar("4#", data4));
-
-        ArrayList<Float> data5 = new ArrayList<>();
-        data5.add(2.80F);
-        data5.add(2.86F);
-        mPillarPillars.add(new PillarPillar("5#", data5));
+        mPillarPillars.add(new PillarPillar("1#", getRandomList(getPillarCount())));
+        mPillarPillars.add(new PillarPillar("2#", getRandomList(getPillarCount())));
+        mPillarPillars.add(new PillarPillar("3#", getRandomList(getPillarCount())));
+        mPillarPillars.add(new PillarPillar("4#", getRandomList(getPillarCount())));
+        mPillarPillars.add(new PillarPillar("5#", getRandomList(getPillarCount())));
     }
 
-    private SimpleBarGraph.ScaleConfigs mScaleConfigs = new SimpleBarGraph.ScaleConfigs() {
-        private SparseArray<String> cache = new SparseArray<>();
-
-        @Override
-        public float getStart() {
-            return 2.78F;
+    private List<Float> getRandomList(int size) {
+        List<Float> list = new ArrayList<>(size);
+        float range = getScaleConfigs().getEnd() - getScaleConfigs().getStart();
+        float per = range / getScaleConfigs().getCount();
+        for (int i = 0; i < size; i++) {
+            float random = mRandom.nextInt(getScaleConfigs().getCount()) + 1;
+            list.add(getScaleConfigs().getStart() + random * per);
         }
-
-        @Override
-        public float getEnd() {
-            return 2.96F;
-        }
-
-        @Override
-        public int getCount() {
-            return 10;
-        }
-
-        @Override
-        public String getText(int position) {
-            String text = cache.get(position);
-            if (text == null) {
-                text = String.format("%.2f", (getStart() + 0.02F * position));
-                cache.put(position, text);
-            }
-            return text;
-        }
-    };
+        return list;
+    }
 
     @Override
     public SimpleBarGraph.ScaleConfigs getScaleConfigs() {
-        return mScaleConfigs;
+        return new SimpleBarGraph.ScaleConfigs() {
+            private SparseArray<String> cache = new SparseArray<>();
+
+            @Override
+            public float getStart() {
+                return SCALE_START;
+            }
+
+            @Override
+            public float getEnd() {
+                return SCALE_END;
+            }
+
+            @Override
+            public int getCount() {
+                return SCALE_COUNT;
+            }
+
+            @Override
+            public String getScaleText(int position) {
+                String text = cache.get(position);
+                if (text == null) {
+                    text = String.format("%.2f", (getStart() + 0.02F * position));
+                    cache.put(position, text);
+                }
+                return text;
+            }
+        };
     }
 
     @Override
-    public List<SimpleBarGraph.PillarConfig> getPillarConfigs() {
-        return mPillarConfigs;
+    public List<SimpleBarGraph.PillarConfigs> getPillarConfigs() {
+        ArrayList<SimpleBarGraph.PillarConfigs> pillarConfigs = new ArrayList<>();
+        pillarConfigs.add(new PillarConfigs(0xFF707070, "Before Baking"));
+        pillarConfigs.add(new PillarConfigs(0xFFFDB20D, "After Baking"));
+        return pillarConfigs;
     }
 
     @Override
-    public int getDataCount() {
+    public int getPillarCount() {
         return mPillarPillars.size();
     }
 
     @Override
-    public int getTypeCount() {
-        return 2;
+    public int getPillarTypeCount() {
+        return PILLAR_TYPE_COUNT;
     }
 
     @Override
@@ -100,12 +99,12 @@ public class GraphAdapter implements SimpleBarGraph.Adapter {
         return mPillarPillars.get(position);
     }
 
-    public static class PillarConfig implements SimpleBarGraph.PillarConfig {
+    public static class PillarConfigs implements SimpleBarGraph.PillarConfigs {
 
         private final int color;
         private final String name;
 
-        public PillarConfig(int color, String name) {
+        public PillarConfigs(int color, String name) {
             this.color = color;
             this.name = name;
         }
